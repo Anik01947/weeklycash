@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8" />
+  <title>WeeklyCash</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root { --primary:#27ae60; --bg:#f7fff8; --card:#fff; --text:#222; --muted:#666; --border:#eee; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family:system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--text); }
+    .wrap { padding:16px; padding-bottom:90px; max-width:780px; margin:0 auto; }
+    .card { background:var(--card); padding:16px; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,.06); margin-bottom:14px; }
+    h2,h3 { margin:0 0 10px 0; }
+    .muted { color:var(--muted); font-size:14px; }
+    .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+
+    /* Profile */
+    .profile{ display:flex; gap:12px; align-items:center; }
+    .avatar{
+      width:60px; height:60px; border-radius:50%; background:#e8f5e9;
+      display:flex; align-items:center; justify-content:center; color:#2e7d32; font-weight:700; font-size:20px;
+      background-size:cover; background-position:center; flex:0 0 60px; border:1px solid var(--border);
+    }
+    .name{ font-weight:700; font-size:18px; }
+    .username{ color:var(--muted); font-size:13px; }
+
+    /* Stat cards */
+    .stats{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; }
+    .stat{ background:#f9fff9; border:1px solid var(--border); border-radius:10px; padding:12px; }
+    .stat .label{ font-size:12px; color:#666; }
+    .stat .value{ font-size:20px; font-weight:800; margin-top:3px; }
+
+    /* Earn section */
+    .cta{
+      display:flex; gap:12px; align-items:center; justify-content:space-between; border:1px dashed #cdeccd;
+      background:#f2fff5; padding:12px; border-radius:12px; margin-bottom:10px;
+    }
+    .cta h3{ margin:0; }
+    button {
+      background:var(--primary); color:#fff; border:none; padding:12px 16px; border-radius:10px; cursor:pointer;
+      font-weight:600;
+    }
+    button:disabled { opacity:.6; }
+    .pill { display:inline-block; padding:4px 10px; border-radius:999px; background:#e8f5e9; color:#1b5e20; font-size:12px; }
+    .timer{ font-size:22px; font-weight:800; color:#1b5e20; }
+    .adbox { height:230px; border:1px dashed #aaa; border-radius:12px; display:flex; align-items:center; justify-content:center; margin:10px 0; padding:6px; background:#fff; }
+
+    input, select { padding:10px; border:1px solid #ddd; border-radius:8px; width:100%; }
+
+    /* Bottom Tab Bar */
+    .tabbar {
+      position: fixed; left:0; right:0; bottom:0; height:64px;
+      background:#fff; border-top:1px solid #eee; display:flex; z-index:99;
+    }
+    .tabbar button {
+      flex:1; background:transparent; border:none; display:flex;
+      align-items:center; justify-content:center; flex-direction:column;
+      font-size:12px; color:#666; gap:4px;
+    }
+    .tabbar button.active { color:var(--primary); font-weight:700; }
+    .icon { font-size:18px; line-height:18px; }
+
+    .page { display:none; }
+    .page.active { display:block; }
+
+    ul.list { list-style:none; padding:0; margin:0; }
+    ul.list li { padding:10px 0; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; gap:8px; }
+    .center { text-align:center; }
+    .badge { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; background:#eee; }
+    .badge.pending { background:#fef3c7; color:#92400e; }
+    .badge.approved { background:#dcfce7; color:#166534; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <!-- HOME -->
+    <section id="page-home" class="page active">
+      <div class="card">
+        <div class="profile">
+          <div id="avatar" class="avatar">U</div>
+          <div>
+            <div class="name" id="nameTxt">Loading…</div>
+            <div class="username" id="userSub">Welcome to WeeklyCash</div>
+          </div>
+        </div>
+        <div class="stats">
+          <div class="stat">
+            <div class="label">Balance</div>
+            <div class="value" id="stat-balance">৳0.00</div>
+          </div>
+          <div class="stat">
+            <div class="label">Ads Watched</div>
+            <div class="value" id="stat-ads">0</div>
+          </div>
+        </div>
+        <div class="muted" style="margin-top:8px;">Withdraw শুধুমাত্র শুক্রবার করা যাবে।</div>
+      </div>
+
+      <div class="card">
+        <div class="row" style="justify-content:space-between;">
+          <div>
+            <div class="muted">Reward per Ad</div>
+            <div class="pill"><span id="ov-reward">15</span> পয়সা</div>
+          </div>
+          <div>
+            <div class="muted">Timer</div>
+            <div class="pill"><span id="ov-sec">20</span>s</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- EARN -->
+    <section id="page-earn" class="page">
+      <div class="card">
+        <div class="cta">
+          <div>
+            <h3 style="margin-bottom:4px;">Watch Ads</h3>
+            <div class="muted">দেখুন, টাইমার শেষ হলে Claim করুন…</div>
+          </div>
+          <button id="watchBtn">Watch Ads</button>
+        </div>
+        <div class="row" style="gap:14px;">
+          <div id="timer" class="timer" style="display:none;">20</div>
+          <button id="claimBtn" style="display:none;">Claim</button>
+        </div>
+        <div class="adbox" id="adSlot">
+          <div class="muted">Ad zone loading…</div>
+        </div>
+        <div class="muted" id="earn-note" style="margin-top:6px;"></div>
+      </div>
+    </section>
+
+    <!-- WITHDRAW -->
+    <section id="page-withdraw" class="page">
+      <div class="card">
+        <h3>Withdraw</h3>
+        <div class="row">
+          <select id="method">
+            <option value="bkash">bKash</option>
+            <option value="nagad">Nagad</option>
+            <option value="rocket">Rocket</option>
+          </select>
+          <input id="number" placeholder="Number (11 digits)" />
+          <input id="amount" type="number" step="0.01" placeholder="Amount (Taka)" />
+          <button id="withdrawBtn">Request Withdraw</button>
+        </div>
+        <div class="muted" id="withdrawInfo" style="margin-top:8px;"></div>
+      </div>
+    </section>
+
+    <!-- STATUS -->
+    <section id="page-status" class="page">
+      <div class="card">
+        <h3>Withdraw Status</h3>
+        <ul class="list" id="historyList">
+          <li class="center muted" id="histEmpty">History ফিচার পরের স্টেপে চালু হবে ✅</li>
+        </ul>
+      </div>
+    </section>
+  </div>
+
+  <!-- Bottom Tabs -->
+  <nav class="tabbar">
+    <button class="active" data-page="home"><div class="icon">🏠</div><div>Home</div></button>
+    <button data-page="earn"><div class="icon">💰</div><div>Earn</div></button>
+    <button data-page="withdraw"><div class="icon">💳</div><div>Withdraw</div></button>
+    <button data-page="status"><div class="icon">📊</div><div>Status</div></button>
+  </nav>
+
+  <script>
+    const tg = window.Telegram.WebApp; tg.ready(); tg.expand();
+    const init = tg.initData;
+    const tgUser = tg.initDataUnsafe?.user || {};
+
+    // Home elements
+    const avatarEl = document.getElementById('avatar');
+    const nameTxt = document.getElementById('nameTxt');
+    const userSub = document.getElementById('userSub');
+    const statBalance = document.getElementById('stat-balance');
+    const statAds = document.getElementById('stat-ads');
+    const ovReward = document.getElementById('ov-reward');
+    const ovSec = document.getElementById('ov-sec');
+
+    // Earn elements
+    const watchBtn = document.getElementById('watchBtn');
+    const timerEl = document.getElementById('timer');
+    const claimBtn = document.getElementById('claimBtn');
+    const earnNote = document.getElementById('earn-note');
+    const adSlot = document.getElementById('adSlot');
+
+    // Withdraw elements
+    const withdrawInfo = document.getElementById('withdrawInfo');
+    const methodEl = document.getElementById('method');
+    const numberEl = document.getElementById('number');
+    const amountEl = document.getElementById('amount');
+
+    // Status
+    const historyList = document.getElementById('historyList');
+
+    // State
+    let sessionId = null;
+    let adSeconds = 20;
+    let rewardPoisha = 15;
+    let minWithdrawTaka = 50;
+    let adLoaded = false;
+
+    function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+    function firstLetter(n){ return (n||'U').trim().charAt(0).toUpperCase(); }
+
+    // Set profile UI from Telegram (instant)
+    (function setProfileFromTelegram(){
+      const fullName = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ') || 'User';
+      nameTxt.textContent = fullName;
+      userSub.textContent = tgUser.username ? '@'+tgUser.username : 'Welcome to WeeklyCash';
+      if (tgUser.photo_url) {
+        avatarEl.style.backgroundImage = `url('${tgUser.photo_url}')`;
+        avatarEl.textContent = '';
+      } else {
+        avatarEl.textContent = firstLetter(fullName);
+      }
+    })();
+
+    // Tabs
+    const pages = {
+      home: document.getElementById('page-home'),
+      earn: document.getElementById('page-earn'),
+      withdraw: document.getElementById('page-withdraw'),
+      status: document.getElementById('page-status'),
+    };
+    document.querySelectorAll('.tabbar button').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const page = btn.dataset.page;
+        showPage(page);
+      });
+    });
+    function showPage(page){
+      document.querySelectorAll('.tabbar button').forEach(b=>b.classList.remove('active'));
+      document.querySelector(`.tabbar button[data-page="${page}"]`).classList.add('active');
+      Object.keys(pages).forEach(k=>{
+        pages[k].classList.toggle('active', k===page);
+      });
+      if (page==='earn') ensureAdLoaded();
+      if (page==='status') loadHistory(); // পরে API যোগ করলে কাজ করবে
+    }
+
+    // Load ad script once (your zone id)
+    function ensureAdLoaded(){
+      if (adLoaded) return;
+      adLoaded = true;
+      adSlot.innerHTML = ''; // clear placeholder
+      const sc = document.createElement('script');
+      sc.src = '//libtl.com/sdk.js';
+      sc.setAttribute('data-zone', '9719762');
+      sc.setAttribute('data-sdk', 'show_9719762');
+      adSlot.appendChild(sc);
+    }
+
+    async function fetchUser() {
+      try {
+        const r = await fetch(`/api/user?init=${encodeURIComponent(init)}`);
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error||'failed');
+
+        // Set data
+        statBalance.textContent = `৳${data.balanceTaka}`;
+        statAds.textContent = data.adsWatched;
+        adSeconds = data.adSeconds; rewardPoisha = data.rewardPoisha; minWithdrawTaka = data.minWithdrawTaka;
+        ovSec.textContent = adSeconds; ovReward.textContent = rewardPoisha;
+        earnNote.textContent = `প্রতি অ্যাডে ${rewardPoisha} পয়সা | টাইমার: ${adSeconds}s`;
+        withdrawInfo.textContent = `Withdraw শুধুমাত্র শুক্রবার | Min: ৳${minWithdrawTaka}`;
+
+        // Server may have a better formatted name
+        if (data.name && data.name.length > 0) {
+          nameTxt.textContent = data.name;
+          if (!tgUser.photo_url) avatarEl.textContent = firstLetter(data.name);
+        }
+      } catch(e) {
+        // ignore
+      }
+    }
+
+    // Earn flow
+    watchBtn.addEventListener('click', async () => {
+      watchBtn.disabled = true;
+      ensureAdLoaded();
+      try {
+        const r = await fetch(`/api/startAd`, {
+          method: 'POST',
+          headers: { 'Content-Type':'application/json' },
+          body: JSON.stringify({ init })
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error||'failed');
+
+        sessionId = data.sessionId;
+        const seconds = data.seconds || adSeconds;
+
+        timerEl.textContent = seconds;
+        timerEl.style.display = 'block';
+        claimBtn.style.display = 'none';
+
+        for (let s = seconds; s > 0; s--) {
+          timerEl.textContent = s;
+          await sleep(1000);
+        }
+        claimBtn.textContent = `Claim ${rewardPoisha} পয়সা`;
+        claimBtn.style.display = 'inline-block';
+      } catch(e) {
+        alert('Try again later.');
+        watchBtn.disabled = false;
+      }
+    });
+
+    claimBtn.addEventListener('click', async () => {
+      claimBtn.disabled = true;
+      try {
+        const r = await fetch(`/api/completeAd`, {
+          method: 'POST',
+          headers: { 'Content-Type':'application/json' },
+          body: JSON.stringify({ init, sessionId })
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error||'failed');
+
+        alert(`✅ Reward added! New balance: ৳${data.balanceTaka}`);
+        timerEl.style.display = 'none';
+        claimBtn.style.display = 'none';
+        watchBtn.disabled = false;
+        fetchUser();
+      } catch(e) {
+        alert('Failed to claim. Try again.');
+        claimBtn.disabled = false;
+      }
+    });
+
+    // Withdraw
+    document.getElementById('withdrawBtn').addEventListener('click', async () => {
+      const method = methodEl.value;
+      const number = numberEl.value.trim();
+      const amountTaka = amountEl.value.trim();
+
+      if (!number || !amountTaka) return alert('সব ঘর পূরণ করুন');
+      if (!/^\d{11}$/.test(number)) return alert('Number 11 digits দিন');
+
+      try {
+        const r = await fetch(`/api/withdraw`, {
+          method: 'POST',
+          headers: { 'Content-Type':'application/json' },
+          body: JSON.stringify({ init, method, number, amountTaka })
+        });
+        const data = await r.json();
+        if (!r.ok) {
+          if (data.error === 'withdraw_only_friday') return alert('Withdraw শুধুমাত্র শুক্রবার করা যাবে।');
+          if (data.error === 'min_withdraw') return alert(`Minimum ৳${data.minTaka}`);
+          if (data.error === 'insufficient_balance') return alert('Balance কম।');
+          return alert('Failed.');
+        }
+        alert('✅ Withdraw request submitted!');
+        numberEl.value = '';
+        amountEl.value = '';
+        fetchUser();
+      } catch(e) {
+        alert('Failed. Try again later.');
+      }
+    });
+
+    // Status placeholder
+    function loadHistory(){
+      historyList.innerHTML = '';
+      const li = document.createElement('li');
+      li.className = 'center muted';
+      li.textContent = 'History ফিচার পরের স্টেপে চালু হবে ✅';
+      historyList.appendChild(li);
+    }
+
+    // Init
+    fetchUser();
+  </script>
+</body>
+                                                              </html>

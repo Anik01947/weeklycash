@@ -1,0 +1,13 @@
+{
+  "name": "weeklycash",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "echo No build"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.5.0",
+    "luxon": "^3.5.0",
+    "uuid": "^9.0.1"
+  }
+}

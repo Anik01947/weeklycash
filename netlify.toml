@@ -28,6 +28,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/myWithdrawals"
+  to = "/.netlify/functions/myWithdrawals"
+  status = 200
+
+[[redirects]]
   from = "/bot"
   to = "/.netlify/functions/bot"
   status = 200

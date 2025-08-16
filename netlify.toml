@@ -1,0 +1,33 @@
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+[[redirects]]
+  from = "/api/user"
+  to = "/.netlify/functions/user"
+  status = 200
+
+[[redirects]]
+  from = "/api/startAd"
+  to = "/.netlify/functions/startAd"
+  status = 200
+
+[[redirects]]
+  from = "/api/completeAd"
+  to = "/.netlify/functions/completeAd"
+  status = 200
+
+[[redirects]]
+  from = "/api/withdraw"
+  to = "/.netlify/functions/withdraw"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/token"
+  to = "/.netlify/functions/adminToken"
+  status = 200
+
+[[redirects]]
+  from = "/bot"
+  to = "/.netlify/functions/bot"
+  status = 200

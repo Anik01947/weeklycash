@@ -44,7 +44,7 @@
     button:disabled { opacity:.6; }
     .pill { display:inline-block; padding:4px 10px; border-radius:999px; background:#e8f5e9; color:#1b5e20; font-size:12px; }
     .timer{ font-size:22px; font-weight:800; color:#1b5e20; }
-    .adbox { height:230px; border:1px dashed #aaa; border-radius:12px; display:flex; align-items:center; justify-content:center; margin:10px 0; padding:6px; background:#fff; }
+    .adbox { min-height:230px; border:1px dashed #aaa; border-radius:12px; display:flex; align-items:center; justify-content:center; margin:10px 0; padding:6px; background:#fff; width:100%; }
 
     input, select { padding:10px; border:1px solid #ddd; border-radius:8px; width:100%; }
 
@@ -155,7 +155,7 @@
       <div class="card">
         <h3>Withdraw Status</h3>
         <ul class="list" id="historyList">
-          <li class="center muted" id="histEmpty">History ফিচার পরের স্টেপে চালু হবে ✅</li>
+          <li class="center muted">Loading…</li>
         </ul>
       </div>
     </section>
@@ -242,7 +242,7 @@
         pages[k].classList.toggle('active', k===page);
       });
       if (page==='earn') ensureAdLoaded();
-      if (page==='status') loadHistory(); // পরে API যোগ করলে কাজ করবে
+      if (page==='status') loadHistory();
     }
 
     // Load ad script once (your zone id)
@@ -271,14 +271,12 @@
         earnNote.textContent = `প্রতি অ্যাডে ${rewardPoisha} পয়সা | টাইমার: ${adSeconds}s`;
         withdrawInfo.textContent = `Withdraw শুধুমাত্র শুক্রবার | Min: ৳${minWithdrawTaka}`;
 
-        // Server may have a better formatted name
+        // Server name override
         if (data.name && data.name.length > 0) {
           nameTxt.textContent = data.name;
           if (!tgUser.photo_url) avatarEl.textContent = firstLetter(data.name);
         }
-      } catch(e) {
-        // ignore
-      }
+      } catch(e) {}
     }
 
     // Earn flow
@@ -366,17 +364,77 @@
       }
     });
 
-    // Status placeholder
-    function loadHistory(){
-      historyList.innerHTML = '';
-      const li = document.createElement('li');
-      li.className = 'center muted';
-      li.textContent = 'History ফিচার পরের স্টেপে চালু হবে ✅';
-      historyList.appendChild(li);
+    // History helpers + loader
+    function maskNumber(n) {
+      if (!n) return '-';
+      const s = String(n);
+      if (s.length <= 4) return s;
+      return s.slice(0, 3) + '****' + s.slice(-4);
+    }
+    function statusBadge(status) {
+      const s = (status || 'pending').toLowerCase();
+      if (s === 'approved') return '<span class="badge approved">Approved</span>';
+      return '<span class="badge pending">Pending</span>';
+    }
+    function formatDate(iso) {
+      if (!iso) return '-';
+      const d = new Date(iso);
+      return d.toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+    }
+
+    async function loadHistory() {
+      try {
+        historyList.innerHTML = '';
+        const loading = document.createElement('li');
+        loading.className = 'center muted';
+        loading.textContent = 'Loading...';
+        historyList.appendChild(loading);
+
+        const r = await fetch(`/api/myWithdrawals?init=${encodeURIComponent(init)}`);
+        const data = await r.json();
+
+        historyList.innerHTML = '';
+        if (!r.ok || !data.items) throw new Error('failed');
+
+        if (data.items.length === 0) {
+          const li = document.createElement('li');
+          li.className = 'center muted';
+          li.textContent = 'কোনো Withdraw history নেই';
+          historyList.appendChild(li);
+          return;
+        }
+
+        data.items.forEach(it => {
+          const li = document.createElement('li');
+
+          const left = document.createElement('div');
+          left.innerHTML = `
+            <div><strong>৳${it.amountTaka}</strong></div>
+            <div class="muted" style="font-size:12px;">${(it.method || '-').toUpperCase()} • ${maskNumber(it.number || '')}</div>
+          `;
+
+          const right = document.createElement('div');
+          right.style.textAlign = 'right';
+          right.innerHTML = `
+            <div>${statusBadge(it.status)}</div>
+            <div class="muted" style="font-size:12px; margin-top:4px;">${formatDate(it.timestamp)}</div>
+          `;
+
+          li.appendChild(left);
+          li.appendChild(right);
+          historyList.appendChild(li);
+        });
+      } catch(e) {
+        historyList.innerHTML = '';
+        const li = document.createElement('li');
+        li.className = 'center muted';
+        li.textContent = 'History লোড করতে সমস্যা হচ্ছে। আবার চেষ্টা করুন।';
+        historyList.appendChild(li);
+      }
     }
 
     // Init
     fetchUser();
   </script>
 </body>
-                                                              </html>
+  </html>

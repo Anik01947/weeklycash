@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin - WeeklyCash</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root { --primary:#27ae60; --bg:#f0fdf4; --card:#fff; --text:#333; --muted:#666; --border:#e5e7eb; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family:system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--text); }
+    .wrap { padding:14px; max-width:980px; margin:0 auto; }
+    .card { background:var(--card); padding:14px; border-radius:12px; box-shadow:0 4px 10px rgba(0,0,0,.05); margin:14px 0; border:1px solid var(--border); }
+    h2,h3 { margin:0 0 10px 0; }
+    .muted { color:var(--muted); font-size:13px; }
+    table { width:100%; border-collapse:collapse; margin-top:8px; }
+    th,td { padding:8px; border-bottom:1px solid var(--border); text-align:left; font-size:14px; }
+    th { background:#f8fafc; position:sticky; top:0; z-index:1; }
+    .btn { padding:8px 12px; border:none; border-radius:8px; background:var(--primary); color:#fff; cursor:pointer; font-weight:600; }
+    .btn:disabled { opacity:.6; }
+    .btn-secondary { background:#475569; color:#fff; }
+    .btn-danger { background:#dc2626; color:#fff; }
+    .row { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+    .loader { display:none; position:fixed; inset:0; background:rgba(255,255,255,.7); backdrop-filter:blur(2px); z-index:999; align-items:center; justify-content:center; }
+    .spinner { width:44px; height:44px; border:5px solid #e5e7eb; border-top:5px solid var(--primary); border-radius:50%; animation:spin 1s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .badge { padding:2px 8px; border-radius:999px; font-size:12px; display:inline-block; }
+    .pending { background:#fef3c7; color:#92400e; }
+    .approved { background:#dcfce7; color:#166534; }
+    .rejected { background:#fee2e2; color:#991b1b; }
+    .scroll { max-height:55vh; overflow:auto; border:1px solid var(--border); border-radius:10px; }
+  </style>
+</head>
+<body>
+  <div class="loader" id="loader"><div class="spinner"></div></div>
+
+  <div class="wrap">
+    <div class="card">
+      <div class="row">
+        <div>
+          <h2>Admin Panel — WeeklyCash</h2>
+          <div class="muted" id="adminInfo">Verifying…</div>
+        </div>
+        <div class="row" style="gap:8px;">
+          <button class="btn btn-secondary" id="refreshBtn">Refresh</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Withdraw Requests</h3>
+      <div class="scroll">
+        <table id="wdTable">
+          <thead>
+            <tr>
+              <th>User</th><th>Amount (৳)</th><th>Method</th><th>Number</th><th>Status</th><th>Time</th><th>Action</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="muted">Approve দিলে Status = approved হবে। প্রয়োজনে Reject ও করতে পারবেন।</div>
+    </div>
+
+    <div class="card">
+      <h3>Users</h3>
+      <div class="scroll">
+        <table id="usersTable">
+          <thead>
+            <tr><th>Name</th><th>Username</th><th>Balance (৳)</th><th>Ads</th><th>Joined</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const tg = window.Telegram.WebApp; tg.ready(); tg.expand();
+    const init = tg.initData;
+    const adminInfo = document.getElementById('adminInfo');
+    const loader = document.getElementById('loader');
+
+    function showLoader(s){ loader.style.display = s ? 'flex' : 'none'; }
+    function money(poisha){ return (Number(poisha||0)/100).toFixed(2); }
+    function maskNumber(n){ if(!n) return '-'; const s=String(n); return s.length>4 ? s.slice(0,3)+'****'+s.slice(-4) : s; }
+    function badge(status){
+      const s = (status||'pending').toLowerCase();
+      const span = document.createElement('span');
+      span.className = 'badge '+(s==='approved'?'approved':s==='rejected'?'rejected':'pending');
+      span.textContent = s==='approved'?'Approved':s==='rejected'?'Rejected':'Pending';
+      return span;
+    }
+    function fmt(iso){ if(!iso) return '-'; const d = new Date(iso); return d.toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}); }
+
+    async function fetchJSON(url){
+      const r = await fetch(url);
+      const j = await r.json();
+      if(!r.ok) throw new Error(j.error||'failed');
+      return j;
+    }
+    async function postJSON(url, body){
+      const r = await fetch(url,{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      const j = await r.json();
+      if(!r.ok) throw new Error(j.error||'failed');
+      return j;
+    }
+
+    async function loadWithdrawals(){
+      const tbody = document.querySelector('#wdTable tbody');
+      tbody.innerHTML = '';
+      const data = await fetchJSON(`/api/admin/withdrawals?init=${encodeURIComponent(init)}`);
+      data.items.forEach(w=>{
+        const tr = document.createElement('tr');
+
+        const tdUser = document.createElement('td'); tdUser.textContent = w.name || '-';
+        const tdAmt = document.createElement('td'); tdAmt.textContent = w.amountTaka;
+        const tdMethod = document.createElement('td'); tdMethod.textContent = (w.method||'-').toUpperCase();
+        const tdNum = document.createElement('td'); tdNum.textContent = maskNumber(w.number||'-');
+        const tdStatus = document.createElement('td'); tdStatus.appendChild(badge(w.status));
+        const tdTime = document.createElement('td'); tdTime.textContent = fmt(w.timestamp);
+        const tdAct = document.createElement('td');
+
+        if ((w.status||'pending')==='pending'){
+          const approveBtn = document.createElement('button');
+          approveBtn.className='btn'; approveBtn.textContent='Approve';
+          approveBtn.onclick = async ()=>{
+            try { showLoader(true); await postJSON('/api/admin/approve',{ init, id: w.id, status:'approved' }); await loadWithdrawals(); }
+            catch(e){ alert('Approve failed'); } finally { showLoader(false); }
+          };
+
+          const rejectBtn = document.createElement('button');
+          rejectBtn.className='btn btn-danger'; rejectBtn.style.marginLeft='6px'; rejectBtn.textContent='Reject';
+          rejectBtn.onclick = async ()=>{
+            if (!confirm('Reject this withdrawal?')) return;
+            try { showLoader(true); await postJSON('/api/admin/approve',{ init, id: w.id, status:'rejected' }); await loadWithdrawals(); }
+            catch(e){ alert('Reject failed'); } finally { showLoader(false); }
+          };
+
+          tdAct.appendChild(approveBtn);
+          tdAct.appendChild(rejectBtn);
+        } else {
+          tdAct.textContent = '-';
+        }
+
+        tr.append(tdUser, tdAmt, tdMethod, tdNum, tdStatus, tdTime, tdAct);
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function loadUsers(){
+      const tbody = document.querySelector('#usersTable tbody');
+      tbody.innerHTML = '';
+      const data = await fetchJSON(`/api/admin/users?init=${encodeURIComponent(init)}`);
+      data.items.forEach(u=>{
+        const tr = document.createElement('tr');
+        const td = (t)=>{ const x=document.createElement('td'); x.textContent=t; return x; };
+        tr.append(td(u.name||'User'));
+        tr.append(td(u.username?('@'+u.username):'-'));
+        tr.append(td(u.balanceTaka));
+        tr.append(td(u.adsWatched||0));
+        tr.append(td(fmt(u.createdAt)));
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function initAdmin(){
+      try{
+        showLoader(true);
+        if (!init) throw new Error('no_init');
+        adminInfo.textContent = `Admin: ${tg.initDataUnsafe?.user?.first_name || 'Unknown'}`;
+        await Promise.all([loadWithdrawals(), loadUsers()]);
+      } catch(e){
+        document.body.innerHTML = '<div style="padding:20px"><h2>Access Denied</h2><div class="muted">Open inside Telegram & ensure your Telegram ID is in ADMIN_IDS.</div></div>';
+      } finally {
+        showLoader(false);
+      }
+    }
+
+    document.getElementById('refreshBtn').addEventListener('click', ()=>{ initAdmin(); });
+    initAdmin();
+  </script>
+</body>
+</html>

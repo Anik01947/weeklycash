@@ -36,3 +36,18 @@
   from = "/bot"
   to = "/.netlify/functions/bot"
   status = 200
+  
+[[redirects]]
+  from = "/api/admin/users"
+  to = "/.netlify/functions/adminUsers"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/withdrawals"
+  to = "/.netlify/functions/adminWithdrawals"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/approve"
+  to = "/.netlify/functions/adminApprove"
+  status = 200
